@@ -143,8 +143,8 @@ class OpenAIAuth:
             "Referer": "https://explorer.api.openai.com/auth/login",
             "Accept-Encoding": "gzip, deflate",
         }
-        self.debugger.log("Payload: " + payload)
-        self.debugger.log("Payload length: " + str(len(payload)))
+        self.debugger.log(f"Payload: {payload}")
+        self.debugger.log(f"Payload length: {len(payload)}")
         response = self.session.post(url=url, headers=headers, data=payload)
         if response.status_code == 200 and "json" in response.headers["Content-Type"]:
             url = response.json()["url"]
@@ -194,7 +194,7 @@ class OpenAIAuth:
                 self.debugger.log("Status code: ", end="")
                 self.debugger.log(response.status_code)
                 self.debugger.log("Rate limit hit")
-                self.debugger.log("Response: " + str(response.text))
+                self.debugger.log(f"Response: {str(response.text)}")
                 raise Exception("Rate limit hit") from exc
         else:
             self.debugger.log("Error in part four")

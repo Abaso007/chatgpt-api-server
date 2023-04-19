@@ -38,33 +38,37 @@ class Cloudflare:
         options.add_argument("--disable-setuid-sandbox")
         options.add_argument("--disable-dev-shm-usage")
         if self.proxy:
-            options.add_argument("--proxy-server=" + self.proxy)
+            options.add_argument(f"--proxy-server={self.proxy}")
         return options
 
     def __detect_cookies(self, message):
-        if "params" in message:
-            if "headers" in message["params"]:
-                if "set-cookie" in message["params"]["headers"]:
-                    # Use regex to get the cookie for cf_clearance=*;
-                    cf_clearance_cookie = re.search(
-                        "cf_clearance=.*?;",
-                        message["params"]["headers"]["set-cookie"],
-                    )
-                    if cf_clearance_cookie and not self.cf_cookie_found:
-                        print("Found Cloudflare Cookie!")
+        if (
+            "params" in message
+            and "headers" in message["params"]
+            and "set-cookie" in message["params"]["headers"]
+        ):
+            # Use regex to get the cookie for cf_clearance=*;
+            cf_clearance_cookie = re.search(
+                "cf_clearance=.*?;",
+                message["params"]["headers"]["set-cookie"],
+            )
+            if cf_clearance_cookie and not self.cf_cookie_found:
+                print("Found Cloudflare Cookie!")
                         # remove the semicolon and 'cf_clearance=' from the string
-                        raw_cf_cookie = cf_clearance_cookie.group(0)
-                        self.cf_clearance = raw_cf_cookie.split("=")[1][:-1]
-                        self.cf_cookie_found = True
+                raw_cf_cookie = cf_clearance_cookie[0]
+                self.cf_clearance = raw_cf_cookie.split("=")[1][:-1]
+                self.cf_cookie_found = True
 
     def __detect_user_agent(self, message):
-        if "params" in message:
-            if "headers" in message["params"]:
-                if "user-agent" in message["params"]["headers"]:
-                    # Use regex to get the cookie for cf_clearance=*;
-                    user_agent = message["params"]["headers"]["user-agent"]
-                    self.user_agent = user_agent
-                    self.agent_found = True
+        if (
+            "params" in message
+            and "headers" in message["params"]
+            and "user-agent" in message["params"]["headers"]
+        ):
+            # Use regex to get the cookie for cf_clearance=*;
+            user_agent = message["params"]["headers"]["user-agent"]
+            self.user_agent = user_agent
+            self.agent_found = True
 
     def get_cf_cookies(self) -> tuple:
         """

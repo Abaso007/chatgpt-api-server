@@ -20,11 +20,10 @@ class ChatGPTClient:
         
         client_users = kwargs.get('client_users', [])
         server_users = kwargs.get('server_users', {})
-        
+
         if len(client_users) == 0:
             return
-        else:
-            self.users = {}
-            for user in client_users:
-                self.users[user] = server_users[user]
-                self.user_ids.append(server_users[user]['user_id'])
+        self.users = {}
+        for user in client_users:
+            self.users[user] = server_users[user]
+            self.user_ids.append(server_users[user]['user_id'])

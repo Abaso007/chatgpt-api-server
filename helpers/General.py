@@ -16,12 +16,9 @@ def is_valid_socks5_url(url: str) -> bool:
     
     # Socks5 URL regex pattern
     pattern = r'^socks5://(\d{1,3}\.){3}\d{1,3}:\d{1,5}$'
-    
+
     # Check if the URL matches the pattern
-    if re.match(pattern, url):
-        return True
-    
-    return False
+    return bool(re.match(pattern, url))
 
 def generate_api_key(length=32) -> str:
     """
@@ -42,10 +39,7 @@ def json_key_exists(data, *keys):
     """
     if isinstance(data, dict):
         if keys[0] in data.keys():
-            if len(keys) > 1:
-                return json_key_exists(data[keys[0]], *keys[1:])
-            else:
-                return True
+            return json_key_exists(data[keys[0]], *keys[1:]) if len(keys) > 1 else True
         else:
             return False
     else:

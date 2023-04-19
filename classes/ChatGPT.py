@@ -58,16 +58,14 @@ class ChatGPT:
             raise Exception(f'Instance {self.instance} has no proxy set, and no default proxy was found in settings.json in the "api_server" section')
         if type(proxy) is not str:
             raise Exception(f'Proxy for instance {self.instance} was found in settings.json, but it must be a string')
-        else:
-            if not is_valid_socks5_url(proxy):
-                raise Exception(f'Proxy for instance {self.instance} was found in settings.json, but it is not a valid SOCKS5 proxy')
-            else:
-                self.proxy = proxy
-                proxies = {
-                    "http": self.proxy,
-                    "https": self.proxy
-                }
-                self.session.proxies.update(proxies)
+        if not is_valid_socks5_url(proxy):
+            raise Exception(f'Proxy for instance {self.instance} was found in settings.json, but it is not a valid SOCKS5 proxy')
+        self.proxy = proxy
+        proxies = {
+            "http": self.proxy,
+            "https": self.proxy
+        }
+        self.session.proxies.update(proxies)
         #Make sure whether the instance has a plus account or not and set the attribute        
         self.plus = self.user_plus
 
@@ -77,12 +75,12 @@ class ChatGPT:
     async def __configure(self):
         with open('./settings.json', 'r', encoding="utf-8") as f:
             settings = json.load(f)
-        instance_settings = settings['openai']['instances'][self.instance]      
+        instance_settings = settings['openai']['instances'][self.instance]
         api_server_settings = settings['api_server']
 
         #Make sure the instance has an email
         if "email" not in instance_settings:
-            raise Exception(f'No email was found for instance {self.instance} in settings.json')        
+            raise Exception(f'No email was found for instance {self.instance} in settings.json')
         self.email = instance_settings.get("email")
 
         #Make sure the instance has a password
@@ -91,41 +89,45 @@ class ChatGPT:
         self.password = instance_settings.get("password")
 
         #Make sure the instance has a proxy in settings.json either under "opeanai" or under "api_server"
-        if "proxy" in instance_settings:
-            if instance_settings.get("proxy") == "default":
-                if "default_proxy" in api_server_settings:
-                    proxy = api_server_settings.get("default_proxy")
-                else:
-                    raise Exception(f'Instance {self.instance} has proxy set to default, but no default proxy was found in settings.json in the "api_server" section')
-            else:
-                proxy = instance_settings.get("proxy")
+        if (
+            "proxy" in instance_settings
+            and instance_settings.get("proxy") == "default"
+            and "default_proxy" in api_server_settings
+            or "proxy" not in instance_settings
+            and "default_proxy" in api_server_settings
+        ):
+            proxy = api_server_settings.get("default_proxy")
+        elif (
+            "proxy" in instance_settings
+            and instance_settings.get("proxy") == "default"
+            and "default_proxy" not in api_server_settings
+        ):
+            raise Exception(f'Instance {self.instance} has proxy set to default, but no default proxy was found in settings.json in the "api_server" section')
+        elif (
+            "proxy" in instance_settings
+            and instance_settings.get("proxy") != "default"
+        ):
+            proxy = instance_settings.get("proxy")
         else:
-            if "default_proxy" in api_server_settings:
-                proxy = api_server_settings.get("default_proxy")
-            else:
-                raise Exception(f'Instance {self.instance} has no proxy set, and no default proxy was found in settings.json in the "api_server" section')
+            raise Exception(f'Instance {self.instance} has no proxy set, and no default proxy was found in settings.json in the "api_server" section')
         if type(proxy) is not str:
             raise Exception(f'Proxy for instance {self.instance} was found in settings.json, but it must be a string')
-        else:
-            if not is_valid_socks5_url(proxy):
-                raise Exception(f'Proxy for instance {self.instance} was found in settings.json, but it is not a valid SOCKS5 proxy')
-            else:
-                self.proxy = proxy
-                proxies = {
-                    "http": self.proxy,
-                    "https": self.proxy
-                }
-                self.session.proxies.update(proxies)        
-        
-        #Make sure whether the instance has a plus account or not and set the attribute
-        if "plus" in instance_settings:
-            if type(instance_settings.get("plus")) is not bool:
-                raise Exception(f'Attribute "plus" for instance {self.instance} was found in settings.json, but it must be a boolean')
-            else:
-                self.plus = instance_settings.get("plus")
-        else:
+        if not is_valid_socks5_url(proxy):
+            raise Exception(f'Proxy for instance {self.instance} was found in settings.json, but it is not a valid SOCKS5 proxy')
+        self.proxy = proxy
+        proxies = {
+            "http": self.proxy,
+            "https": self.proxy
+        }
+        self.session.proxies.update(proxies)        
+
+        if "plus" not in instance_settings:
             raise Exception(f'No "plus" attribute was found for instance {self.instance} in settings.json, please add it and set it to either true or false')
-        
+
+        if type(instance_settings.get("plus")) is not bool:
+            raise Exception(f'Attribute "plus" for instance {self.instance} was found in settings.json, but it must be a boolean')
+        else:
+            self.plus = instance_settings.get("plus")
         #User email as identity for builtin accounts
         self.identity = self.email
 
@@ -136,7 +138,7 @@ class ChatGPT:
         Refreshes the session's cookies and headers with the latest available information from login()
         """
         self.session.cookies.clear()
-        if Settings.API_ENDPOINT_MODE == None:
+        if Settings.API_ENDPOINT_MODE is None:
             self.session.cookies.update(
                 {
                     "cf_clearance": self.cf_clearance,
@@ -146,7 +148,7 @@ class ChatGPT:
         else:
             Settings.API_USER_AGENT = Settings.API_DEFAULT_USER_AGENT
             self.user_agent = Settings.API_USER_AGENT
-            
+
         self.session.headers.clear()
         self.session.headers.update(
             {
@@ -166,16 +168,18 @@ class ChatGPT:
         if self.type == 'builtin':
             with open('./access_tokens.json', 'r', encoding="utf-8") as f:
                 access_tokens = json.load(f)
-            if self.identity in access_tokens['accounts']:
-                if 'expires_at' in access_tokens['accounts'][self.identity]:
-                    if 'access_token' in access_tokens['accounts'][self.identity]:
-                        now = datetime.now()
-                        expires_at = datetime.strptime(access_tokens['accounts'][self.identity]['expires_at'], '%Y-%m-%d %H:%M:%S.%f')
-                        if now < expires_at:
-                            self.access_token = access_tokens['accounts'][self.identity]['access_token']
-                            await self.__refresh()
-                            return
-            
+            if (
+                self.identity in access_tokens['accounts']
+                and 'expires_at' in access_tokens['accounts'][self.identity]
+                and 'access_token' in access_tokens['accounts'][self.identity]
+            ):
+                now = datetime.now()
+                expires_at = datetime.strptime(access_tokens['accounts'][self.identity]['expires_at'], '%Y-%m-%d %H:%M:%S.%f')
+                if now < expires_at:
+                    self.access_token = access_tokens['accounts'][self.identity]['access_token']
+                    await self.__refresh()
+                    return
+
         auth = OpenAIAuth(
             email_address=self.email,
             password=self.password,
@@ -190,14 +194,14 @@ class ChatGPT:
                 add_json_key(access_tokens['accounts'], {'expires_at': None}, self.identity)
             if not json_key_exists(access_tokens, 'accounts', self.identity, 'access_token'):
                 add_json_key(access_tokens['accounts'], {'access_token': None}, self.identity)
-                
+
             expires_at = datetime.now() + timedelta(seconds=Settings.OPENAI_ACCESS_TOKEN_REFRESH_INTERVAL)
             access_token = self.access_token
             access_tokens['accounts'][self.identity]['expires_at'] = str(expires_at)
             access_tokens['accounts'][self.identity]['access_token'] = access_token            
             with open('./access_tokens.json', 'w', encoding="utf-8") as f:
                 json.dump(access_tokens, f, ensure_ascii=False, indent=4)
-        
+
         #self.session_token = await auth.get_session_token()
         await self.__refresh()
     
@@ -248,15 +252,11 @@ class ChatGPT:
         cookies = self.session.cookies,
         data = json.dumps(request_body),
         timeout_seconds = 360
-        )        
+        )
         if response.status_code == 200:
             return response
         else:
-            error_response = {}
-            error_response['status'] = 'error'
-            error_response['code'] = response.status_code
-            error_response['text'] = response.text
-            return error_response
+            return {'status': 'error', 'code': response.status_code, 'text': response.text}
     
     async def __process_error(self, **kwargs):
         response: dict = kwargs.get("response")
@@ -293,36 +293,29 @@ class ChatGPT:
 
         message_id = str(uuid.uuid4())
         prompt = prompt
-        if self.plus == True:
-            if turbo == True:
-                model = "text-davinci-002-render-sha"
-            else:
-                model = "text-davinci-002-render-sha"
-        else:
-            model = "text-davinci-002-render-sha"
-        
-        request_body = {
-        "action": "next",
-        "messages": [
-            {
-                "id": message_id,
-                "role": "user",
-                "content": {
-                    "content_type": "text",
-                    "parts": [
-                        prompt
-                    ]
+        model = "text-davinci-002-render-sha"
+            request_body = {
+            "action": "next",
+            "messages": [
+                {
+                    "id": message_id,
+                    "role": "user",
+                    "content": {
+                        "content_type": "text",
+                        "parts": [
+                            prompt
+                        ]
+                    }
                 }
-            }
-        ],
-        "model": model,
-        "user": user
-    }
-        
+            ],
+            "model": model,
+            "user": user
+        }
+
         #Only append conversation_id if it is not empty
         if conversation_id != "" and conversation_id is not None:
             request_body["conversation_id"] = conversation_id
-        
+
         if parent_message_id != "" and parent_message_id is not None:
             request_body["parent_message_id"] = parent_message_id
         else:
@@ -332,11 +325,13 @@ class ChatGPT:
 
         response = await self.__chatgpt_post(request_body=request_body)
 
-        if type(response) == dict:        
-            if 'status' in response:             
-                if response['status'] == 'error':
-                    response: dict = await self.__process_error(response=response)
-                    return response            
+        if (
+            type(response) == dict
+            and 'status' in response
+            and response['status'] == 'error'
+        ):
+            response: dict = await self.__process_error(response=response)
+            return response            
 
         step_1 = str(response.text).replace('data: [DONE]','').strip() # Remove the "data: [DONE]" from the response as well as leading and trailing whitespace
         step_2 = step_1.rfind('data: {"message": {"id": "') # Find the last occurance of the string (data: {"message": {"id": ") in the response
@@ -347,15 +342,15 @@ class ChatGPT:
         response = json.loads(step_5) # Convert the response to a dictionary        
 
         #GENERATE RESPONSE TITLE
-        if conversation_id == "" or conversation_id is None: #Only generate title if conversation_id is not provided, which means it's a new conversation
+        if not conversation_id or conversation_id is None: #Only generate title if conversation_id is not provided, which means it's a new conversation
             response['conversation_title'] = await self.__gen_title(conversation_id=response['conversation_id'], message_id=response['message']['id'])
 
         #ATTACH USER'S USERNAME TO RESPONSE
         response['api_user'] = Settings.API_KEYS[user]['username']
-        
+
         end_time = datetime.now() #Start counting time
         response_time = str(round((end_time - start_time).total_seconds(), 2)) #Calculate time difference
-        
+
         response['api_response_time_taken'] = response_time #Add response time to response object
         response['api_prompt_time_origin_readable'] = start_time.strftime('%Y-%m-%d | %H:%M:%S')
         response['api_prompt_time_origin'] = str(start_time)
@@ -376,7 +371,4 @@ class ChatGPT:
             "model": "text-davinci-002-render"
         }
         response = json.loads((await self.__chatgpt_post(request_body=request_body, endpoint="get_title", conversation_id=conversation_id)).text)
-        if 'title' in response:
-            return response['title']
-        else:
-            return 'Error Generating Title'
+        return response['title'] if 'title' in response else 'Error Generating Title'
